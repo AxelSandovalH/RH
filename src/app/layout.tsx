@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Control de Uniformes · SEED",
-  description: "Gestión de uniformes y EPP",
+  title: "SEED · Recursos Humanos",
+  description: "ERP de Recursos Humanos: asistencia, uniformes y empleados",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
