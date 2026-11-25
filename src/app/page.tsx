@@ -10,8 +10,13 @@ export default async function Home() {
   const { data } = await supabase.auth.getClaims();
   if (!data?.claims) redirect("/login");
 
-  const { data: perfil } = await supabase
-    .from("perfiles").select("rol").eq("id", data.claims.sub).single();
+  // Un celular dado de alta como checador va directo al kiosko.
+  const { data: dispositivo } = await supabase.rpc("mi_dispositivo");
+  if (dispositivo) redirect("/kiosko");
 
-  redirect(perfil?.rol === "rh" || perfil?.rol === "admin" ? "/admin" : "/campo");
+  const { data: perfil } = await supabase
+    .from("perfiles").select("rol, activo").eq("id", data.claims.sub).single();
+
+  if (!perfil?.activo) redirect("/pendiente");
+  redirect(perfil.rol === "rh" || perfil.rol === "admin" ? "/admin" : "/campo");
 }
