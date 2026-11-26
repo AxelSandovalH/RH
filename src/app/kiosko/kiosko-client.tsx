@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { abrirCamara, cargarModelos, capturarFoto, detectar } from "@/lib/rostros/face";
+import { BotonSalir } from "@/components/boton-salir";
 
 type Dispositivo = { nombre: string; ubicacion: string; activo: boolean };
 type Resultado =
@@ -240,7 +241,13 @@ export function KioskoClient() {
           <p className="text-4xl font-semibold tabular-nums">{hora}</p>
           <p className="text-sm capitalize text-neutral-400">{fecha}</p>
         </div>
-        {disp && <p className="text-right text-sm text-neutral-400">{disp.ubicacion}</p>}
+        <div className="flex flex-col items-end gap-2">
+          {disp && <p className="text-right text-sm text-neutral-400">{disp.ubicacion}</p>}
+          <BotonSalir
+            confirmar="¿Cerrar la sesión de este checador? Se necesitará volver a entrar con su correo y contraseña."
+            className="text-xs text-neutral-600 hover:text-neutral-300"
+          />
+        </div>
       </header>
 
       <div className="relative mx-auto my-4 aspect-[3/4] w-full max-w-md flex-1 overflow-hidden rounded-3xl bg-black">
