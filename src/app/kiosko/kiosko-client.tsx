@@ -21,14 +21,106 @@ const INTERVALO_MS = 350;
 const CUADROS_ESTABLES = 2;      // detecciones seguidas antes de checar
 const TAMANO_MINIMO = 0.22;      // la cara debe ocupar ~1/4 del ancho (persona cerca)
 const MOSTRAR_RESULTADO_MS = 3500;
+const LIMITE_FOTO_MS = 8000;     // si la foto tarda más, se checa sin foto
+const LIMITE_CHECADA_MS = 12000; // si el servidor no responde, se avisa y se reintenta
+
+class TiempoAgotado extends Error {}
+
+function conLimite<T>(promesa: PromiseLike<T>, ms: number): Promise<T> {
+  return new Promise((ok, mal) => {
+    const t = setTimeout(() => mal(new TiempoAgotado()), ms);
+    Promise.resolve(promesa).then(
+      (v) => { clearTimeout(t); ok(v); },
+      (e) => { clearTimeout(t); mal(e); },
+    );
+  });
+}
+
+type Supabase = ReturnType<typeof createClient>;
+
+/** Foto + validación en el servidor, con límite de tiempo en cada paso. */
+async function procesarChecada(
+  supabase: Supabase,
+  video: HTMLVideoElement,
+  descriptor: number[],
+  p: GeolocationPosition | null,
+): Promise<Resultado> {
+  if (!p) return { ok: false, error: "Esperando la ubicación del GPS… intenta de nuevo." };
+
+  // Foto de evidencia: si falla o tarda, igual se intenta checar
+  let fotoPath: string | null = null;
+  try {
+    fotoPath = await conLimite(
+      (async () => {
+        const { data: sesion } = await supabase.auth.getSession();
+        const uid = sesion.session?.user.id;
+        if (!uid) return null;
+        const foto = await capturarFoto(video);
+        const dia = new Date().toISOString().slice(0, 10);
+        const ruta = `checadas/${uid}/${dia}/${crypto.randomUUID()}.jpg`;
+        const { error } = await supabase.storage.from("asistencia").upload(ruta, foto, { contentType: "image/jpeg" });
+        if (error) console.warn("[kiosko] foto no subida:", error.message);
+        return error ? null : ruta;
+      })(),
+      LIMITE_FOTO_MS,
+    );
+  } catch (e) {
+    console.warn("[kiosko] foto omitida:", e instanceof TiempoAgotado ? "tiempo agotado" : e);
+  }
+
+  try {
+    const { data, error } = await conLimite(
+      supabase.rpc("registrar_checada", {
+        p_descriptor: descriptor,
+        p_lat: p.coords.latitude,
+        p_lng: p.coords.longitude,
+        p_precision: p.coords.accuracy,
+        p_foto_path: fotoPath,
+      }),
+      LIMITE_CHECADA_MS,
+    );
+    if (error) {
+      console.error("[kiosko] registrar_checada:", error);
+      return { ok: false, error: "El servidor respondió con un error. Intenta de nuevo." };
+    }
+    return data as Resultado;
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof TiempoAgotado
+        ? "El servidor tardó demasiado. Revisa la conexión a internet e intenta de nuevo."
+        : "Sin conexión con el servidor. Intenta de nuevo.",
+    };
+  }
+}
 
 export function KioskoClient() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const posicion = useRef<GeolocationPosition | null>(null);
+  const montado = useRef(true);
+  const timerResultado = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [estado, setEstado] = useState<Estado>({ fase: "iniciando", mensaje: "Preparando checador…" });
   const [disp, setDisp] = useState<Dispositivo | null>(null);
   const [reloj, setReloj] = useState<Date | null>(null);
   const [cercaMsg, setCercaMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    montado.current = true;
+    return () => {
+      montado.current = false;
+      if (timerResultado.current) clearTimeout(timerResultado.current);
+    };
+  }, []);
+
+  /** Muestra el resultado unos segundos y vuelve a esperar al siguiente. */
+  function mostrarResultado(resultado: Resultado) {
+    if (!montado.current) return;
+    setEstado({ fase: "resultado", resultado });
+    if (timerResultado.current) clearTimeout(timerResultado.current);
+    timerResultado.current = setTimeout(() => {
+      if (montado.current) setEstado({ fase: "esperando" });
+    }, MOSTRAR_RESULTADO_MS);
+  }
 
   // Reloj en pantalla
   useEffect(() => {
@@ -123,41 +215,12 @@ export function KioskoClient() {
     }
 
     async function checar(video: HTMLVideoElement, descriptor: number[]) {
+      // Al cambiar de fase este efecto se limpia (activo = false); el resto
+      // del proceso NO depende de él, sino de montado/temporizador del componente.
+      activo = false;
       setEstado({ fase: "procesando" });
-      const p = posicion.current;
-      if (!p) {
-        mostrar({ ok: false, error: "Esperando la ubicación del GPS… intenta de nuevo." });
-        return;
-      }
-
-      // Foto de evidencia (si falla la subida, igual se intenta checar)
-      let fotoPath: string | null = null;
-      try {
-        const { data: claims } = await supabase.auth.getClaims();
-        const uid = claims?.claims.sub;
-        const foto = await capturarFoto(video);
-        const dia = new Date().toISOString().slice(0, 10);
-        const ruta = `checadas/${uid}/${dia}/${crypto.randomUUID()}.jpg`;
-        const { error } = await supabase.storage.from("asistencia").upload(ruta, foto, { contentType: "image/jpeg" });
-        if (!error) fotoPath = ruta;
-      } catch {
-        // sin foto
-      }
-
-      const { data, error } = await supabase.rpc("registrar_checada", {
-        p_descriptor: descriptor,
-        p_lat: p.coords.latitude,
-        p_lng: p.coords.longitude,
-        p_precision: p.coords.accuracy,
-        p_foto_path: fotoPath,
-      });
-      mostrar(error ? { ok: false, error: "Sin conexión con el servidor. Intenta de nuevo." } : (data as Resultado));
-    }
-
-    function mostrar(resultado: Resultado) {
-      if (!activo) return;
-      setEstado({ fase: "resultado", resultado });
-      timer = setTimeout(() => activo && setEstado({ fase: "esperando" }), MOSTRAR_RESULTADO_MS);
+      const resultado = await procesarChecada(supabase, video, descriptor, posicion.current);
+      mostrarResultado(resultado);
     }
 
     ciclo();
