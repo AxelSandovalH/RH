@@ -40,7 +40,7 @@ export function MenuLateral({ pie }: { pie: React.ReactNode }) {
 
   const marca = (
     <div className="px-3">
-      <p className="text-lg font-semibold">SEED</p>
+      <p className="text-lg font-semibold">Xayac</p>
       <p className="text-xs text-neutral-500">Recursos Humanos</p>
     </div>
   );
@@ -56,7 +56,7 @@ export function MenuLateral({ pie }: { pie: React.ReactNode }) {
 
       {/* Celular */}
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-3 md:hidden">
-        <p className="font-semibold">SEED · RH</p>
+        <p className="font-semibold">Xayac · RH</p>
         <button onClick={() => setAbierto(true)} aria-label="Abrir menú">
           <Menu />
         </button>

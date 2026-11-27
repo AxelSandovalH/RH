@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SEED · Recursos Humanos",
+  title: "Xayac · Recursos Humanos",
   description: "ERP de Recursos Humanos: asistencia, uniformes y empleados",
 };
 
