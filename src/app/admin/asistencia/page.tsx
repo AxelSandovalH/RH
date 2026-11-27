@@ -5,7 +5,9 @@ const MOTIVOS: Record<string, string> = {
   NO_RECONOCIDO: "Rostro no reconocido",
   FUERA_DE_ZONA: "Fuera de la zona",
   GPS_IMPRECISO: "GPS impreciso",
-  DISPOSITIVO_INACTIVO: "Celular no habilitado",
+  DISPOSITIVO_INACTIVO: "Equipo no habilitado",
+  HUELLA_NO_RECONOCIDA: "Huella no reconocida",
+  HUELLA_SIN_EMPLEADO: "Huella sin empleado asignado",
 };
 
 type Checada = {

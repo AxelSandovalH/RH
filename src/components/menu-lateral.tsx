@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { ClipboardCheck, Home, Menu, ScanFace, Shirt, Users, X } from "lucide-react";
+import { ClipboardCheck, Fingerprint, Home, Menu, ScanFace, Shirt, Users, X } from "lucide-react";
 
 const MODULOS = [
   { href: "/admin", label: "Inicio", icon: Home },
@@ -11,6 +11,7 @@ const MODULOS = [
   { href: "/admin/uniformes", label: "Uniformes y EPP", icon: Shirt },
   { href: "/admin/empleados", label: "Empleados", icon: Users },
   { href: "/admin/rostros", label: "Registrar rostros", icon: ScanFace },
+  { href: "/admin/huellas", label: "Huellas", icon: Fingerprint },
 ];
 
 export function MenuLateral({ pie }: { pie: React.ReactNode }) {

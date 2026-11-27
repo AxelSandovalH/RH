@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Videos generados (pesados, no van al repo)
+/marketing/comercial-xayac/
